@@ -10,7 +10,7 @@
 - Гравець повинен мати можливість купити виставлений предмет, якщо у нього достатньо коштів на балансі.
 
 ## 3. EARS Вимоги
-1. **REQ-01:** WHEN the Player wants to buy an item, the system SHALL process the transaction. 
+1. **REQ-01:** WHEN the Player clicks "Buy", IF wallet_balance >= price, the system SHALL deduct funds AND transfer the InventoryItem.
 2. **REQ-02:** WHILE the Player is browsing the market, the system SHALL display available items.
 3. **REQ-03:** WHEN the Player tops up the wallet, the PaymentGateway SHALL add funds.
 4. **REQ-04:** WHERE the skin rarity is "Legendary", the system SHALL highlight it in gold.

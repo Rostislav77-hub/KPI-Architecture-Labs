@@ -5,11 +5,16 @@ flowchart LR
 
     %% Use Cases
     UC1((Купити предмет))
-    UC2((Поповнити баланс))
-    UC3((Продати предмет))
+    UC2((Перевірити баланс))
+    UC3((Поповнити баланс))
+    UC4((Продати предмет))
 
     %% Зв'язки
     Player --> UC1
-    Player --> UC2
+    Player --> UC4
     Player --> UC3
-    UC2 <--> PaymentGateway
+    
+    UC1 -. "<<include>>" .-> UC2
+    UC3 -. "<<extend>>\n[if balance insufficient]" .-> UC1
+    
+    UC3 <--> PaymentGateway
