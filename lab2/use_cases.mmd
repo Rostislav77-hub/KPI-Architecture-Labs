@@ -1,0 +1,15 @@
+flowchart LR
+    %% Актори
+    Player([Player])
+    PaymentGateway([Payment Gateway])
+
+    %% Use Cases
+    UC1((Купити предмет))
+    UC2((Поповнити баланс))
+    UC3((Продати предмет))
+
+    %% Зв'язки
+    Player --> UC1
+    Player --> UC2
+    Player --> UC3
+    UC2 <--> PaymentGateway
