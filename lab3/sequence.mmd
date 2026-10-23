@@ -1,34 +1,115 @@
+%% Сценарій 1: Успішна купівля предмета та атомарність транзакції (NFR-02)
 sequenceDiagram
     autonumber
     actor Player
     participant UI as MarketplaceUI
     participant TS as TransactionService
-    participant WS as WalletService
     participant IS as InventoryService
+    participant WS as WalletService
+
+    Player->>UI: clickBuy(itemId, price)
+    UI->>TS: processPurchase(buyerId, itemId, price)
+    activate TS
+
+    TS->>IS: checkItemStatus(itemId)
+    activate IS
+    IS-->>TS: status(ACTIVE, sellerId)
+    deactivate IS
+
+    TS->>WS: checkBalance(buyerId, price)
+    activate WS
+    WS-->>TS: balanceOk(true)
+    deactivate WS
+
+    TS->>WS: deductFunds(buyerId, price)
+    activate WS
+    WS-->>TS: fundsDeducted(true)
+    deactivate WS
+
+    TS->>IS: updateItemOwnerAndDelist(itemId, buyerId)
+    activate IS
+    alt Передача player_id успішна та предмет зникає з активних лотів
+        IS-->>TS: ownerUpdatedAndDelisted(true)
+        TS->>TS: createMarketTransaction(sellerId, buyerId, itemId, price)
+        TS-->>UI: purchaseCompleted(transactionId)
+        UI-->>Player: showSuccess("Предмет придбано та знято з лотів")
+    else Збій оновлення InventoryItem (NFR-02)
+        IS-->>TS: updateFailed(error)
+        TS->>WS: refundFunds(buyerId, price)
+        activate WS
+        WS-->>TS: refundConfirmed(true)
+        deactivate WS
+        TS-->>UI: purchaseAborted("Помилка, кошти повернуто")
+        UI-->>Player: showError("Купівлю скасовано")
+    end
+    deactivate IS
+
+    deactivate TS
+
+%% Сценарій 2: Недостатньо коштів та поповнення через шлюз (REQ-05)
+sequenceDiagram
+    autonumber
+    actor Player
+    participant UI as MarketplaceUI
+    participant TS as TransactionService
+    participant IS as InventoryService
+    participant WS as WalletService
     participant PG as PaymentGateway
 
-    Player->>UI: initiatePurchase(itemId, itemPrice)
-    UI->>TS: processPurchase(playerId, itemId, itemPrice)
-    TS->>WS: checkBalance(playerId, itemPrice)
-    WS-->>TS: balanceStatus(isEnough)
+    Player->>UI: clickBuy(itemId, price)
+    UI->>TS: processPurchase(buyerId, itemId, price)
+    activate TS
 
-    alt isEnough == true (Достатньо коштів)
-        TS->>WS: deductFunds(playerId, itemPrice)
-        WS-->>TS: fundsDeducted(true)
-        TS->>IS: transferOwnership(itemId, playerId)
-        IS-->>TS: ownershipTransferred(true)
-        TS-->>UI: purchaseSuccess(transactionDetails)
-        UI-->>Player: showSuccessMessage("Предмет успішно придбано!")
-    else isEnough == false (Недостатньо коштів)
-        TS-->>UI: purchaseFailed("Insufficient funds")
-        UI-->>Player: showErrorMessage("Недостатньо коштів на балансі")
+    TS->>IS: checkItemStatus(itemId)
+    activate IS
+    IS-->>TS: status(ACTIVE, sellerId)
+    deactivate IS
 
-        opt Гравець вирішує поповнити баланс (extend)
-            Player->>UI: selectTopUp(missingAmount)
-            UI->>PG: processPayment(playerId, missingAmount)
-            PG-->>UI: paymentConfirmed(token)
-            UI->>WS: addFunds(playerId, missingAmount)
-            WS-->>UI: balanceUpdated(newBalance)
-            UI-->>Player: showTopUpSuccess("Баланс поповнено, спробуйте ще раз")
-        end
+    TS->>WS: checkBalance(buyerId, price)
+    activate WS
+    WS-->>TS: balanceInsufficient(deficit)
+    deactivate WS
+
+    TS-->>UI: rejectInsufficientFunds(deficit)
+    deactivate TS
+
+    opt Поповнення балансу (extend)
+        UI-->>Player: promptTopUp(deficit)
+        Player->>UI: requestTopUp(deficit)
+        UI->>PG: createPaymentSession(buyerId, deficit)
+        activate PG
+        PG-->>UI: paymentPageReady(sessionId)
+        Player->>PG: submitCardPayment()
+        PG->>WS: confirmPayment(buyerId, deficit)
+        activate WS
+        WS->>WS: credit_wallet_balance(buyerId, deficit)
+        WS-->>PG: paymentAck(OK)
+        deactivate WS
+        PG-->>UI: paymentSucceeded()
+        deactivate PG
+        UI-->>Player: showBalanceUpdated("Баланс поповнено")
     end
+
+%% Сценарій 3: Предмет уже продано (REQ-03, break)
+sequenceDiagram
+    autonumber
+    actor Player
+    participant UI as MarketplaceUI
+    participant TS as TransactionService
+    participant IS as InventoryService
+
+    Player->>UI: clickBuy(itemId, price)
+    UI->>TS: processPurchase(buyerId, itemId, price)
+    activate TS
+
+    TS->>IS: checkItemStatus(itemId)
+    activate IS
+    IS-->>TS: status(SOLD, sellerId)
+    deactivate IS
+
+    break Статус лота == SOLD
+        TS-->>UI: rejectLotSold("Предмет уже продано")
+        UI-->>Player: showError("Предмет недоступний")
+    end
+
+    deactivate TS
