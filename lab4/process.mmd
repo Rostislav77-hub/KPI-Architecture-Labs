@@ -1,0 +1,48 @@
+flowchart TD
+    subgraph Player ["Гравець"]
+        Start((Початок)) --> ClickBuy["Натиснути Купити"]
+        TopUpChoice{"Поповнити баланс?"}
+        EnterCard["Ввести дані картки"]
+        EndNode((Кінець))
+    end
+
+    subgraph UI ["MarketplaceUI"]
+        ForwardReq["Передати запит купівлі"]
+        ShowSold["Відобразити помилку лота"]
+        ShowSuccess["Оплачено успішно"]
+    end
+
+    subgraph System ["Система маркетплейсу"]
+        CheckLot["Перевірити статус лота"]
+        LotState{"Лот активний?"}
+        LotSoldState["Статус: Продано"]
+        CheckBalance["Перевірити баланс"]
+        BalState{"Достатньо коштів?"}
+        Deduct["Списати кошти"]
+        ForkNode["=== FORK ==="]
+        UpdateOwner["Змінити власника предмета"]
+        SaveTx["Зберегти транзакцію в БД"]
+        UpdateErr{"Помилка оновлення?"}
+        Refund["Повернути кошти"]
+        JoinNode["=== JOIN ==="]
+    end
+
+    subgraph PG ["PaymentGateway"]
+        SendPayReq["Запит оплати"]
+        ProcessPay["Обробити платіж"]
+        PaidState["Статус: Оплачено"]
+    end
+
+    ClickBuy --> ForwardReq --> CheckLot --> LotState
+    LotState -->|Ні| LotSoldState --> ShowSold --> EndNode
+    LotState -->|Так| CheckBalance --> BalState
+    BalState -->|Ні| TopUpChoice
+    TopUpChoice -->|Ні| EndNode
+    TopUpChoice -->|Так| SendPayReq --> ProcessPay --> EnterCard --> PaidState --> Deduct
+    BalState -->|Так| Deduct
+    Deduct --> ForkNode
+    ForkNode --> UpdateOwner --> UpdateErr
+    UpdateErr -->|Так| Refund --> EndNode
+    UpdateErr -->|Ні| JoinNode
+    ForkNode --> SaveTx --> JoinNode
+    JoinNode --> ShowSuccess --> EndNode
