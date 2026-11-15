@@ -1,0 +1,119 @@
+flowchart TB
+    subgraph Boundary ["In-Game Marketplace System"]
+        WebUI["«component»\nMarketplace Web UI"]
+
+        subgraph Backend ["Marketplace Backend"]
+            subgraph API ["API (controllers)"]
+                PurchaseCtrl["«component»\nPurchaseController"]
+                InvCtrl["«component»\nInventoryController"]
+                WebhookCtrl["«component»\nPaymentWebhookController"]
+            end
+
+            subgraph Services ["Services (business logic)"]
+                I_Tx(("ITransactionService"))
+                I_Inv(("IInventoryService"))
+                I_Wal(("IWalletService"))
+                TxSvc["«component»\nTransactionService"]
+                InvSvc["«component»\nInventoryService"]
+                WalSvc["«component»\nWalletService"]
+                NotifSvc["«component»\nNotificationService"]
+            end
+
+            subgraph DAL ["Data access (repositories)"]
+                I_PRepo(("IPlayerRepo"))
+                I_IRepo(("IInventoryRepo"))
+                I_TRepo(("ITransactionRepo"))
+                PRepo["«component»\nPlayerRepository"]
+                IRepo["«component»\nInventoryRepository"]
+                TRepo["«component»\nTransactionRepository"]
+            end
+
+            DB[("«database»\nMarketplace DB")]
+            PayGW["«external»\nPaymentGateway"]
+            IdP["«external»\nGameIdentityProvider"]
+            NotifExt["«external»\nNotificationProvider"]
+        end
+
+        WebUI --> PurchaseCtrl
+        WebUI --> InvCtrl
+        WebUI --> WebhookCtrl
+
+        PurchaseCtrl -.-> I_Tx
+        I_Tx --- TxSvc
+        TxSvc -.-> I_Inv
+        I_Inv --- InvSvc
+        TxSvc -.-> I_Wal
+        I_Wal --- WalSvc
+
+        WalSvc -.-> I_PRepo
+        I_PRepo --- PRepo
+        InvSvc -.-> I_IRepo
+        I_IRepo --- IRepo
+        TxSvc -.-> I_TRepo
+        I_TRepo --- TRepo
+
+        PRepo --> DB
+        IRepo --> DB
+        TRepo --> DB
+        WalSvc --> PayGW
+        NotifSvc --> NotifExt
+    endflowchart TB
+    subgraph Boundary ["In-Game Marketplace System"]
+        WebUI["«component»\nMarketplace Web UI"]
+
+        subgraph Backend ["Marketplace Backend"]
+            subgraph API ["API (controllers)"]
+                PurchaseCtrl["«component»\nPurchaseController"]
+                InvCtrl["«component»\nInventoryController"]
+                WebhookCtrl["«component»\nPaymentWebhookController"]
+            end
+
+            subgraph Services ["Services (business logic)"]
+                I_Tx(("ITransactionService"))
+                I_Inv(("IInventoryService"))
+                I_Wal(("IWalletService"))
+                TxSvc["«component»\nTransactionService"]
+                InvSvc["«component»\nInventoryService"]
+                WalSvc["«component»\nWalletService"]
+                NotifSvc["«component»\nNotificationService"]
+            end
+
+            subgraph DAL ["Data access (repositories)"]
+                I_PRepo(("IPlayerRepo"))
+                I_IRepo(("IInventoryRepo"))
+                I_TRepo(("ITransactionRepo"))
+                PRepo["«component»\nPlayerRepository"]
+                IRepo["«component»\nInventoryRepository"]
+                TRepo["«component»\nTransactionRepository"]
+            end
+
+            DB[("«database»\nMarketplace DB")]
+            PayGW["«external»\nPaymentGateway"]
+            IdP["«external»\nGameIdentityProvider"]
+            NotifExt["«external»\nNotificationProvider"]
+        end
+
+        WebUI --> PurchaseCtrl
+        WebUI --> InvCtrl
+        WebUI --> WebhookCtrl
+
+        PurchaseCtrl -.-> I_Tx
+        I_Tx --- TxSvc
+        TxSvc -.-> I_Inv
+        I_Inv --- InvSvc
+        TxSvc -.-> I_Wal
+        I_Wal --- WalSvc
+
+        WalSvc -.-> I_PRepo
+        I_PRepo --- PRepo
+        InvSvc -.-> I_IRepo
+        I_IRepo --- IRepo
+        TxSvc -.-> I_TRepo
+        I_TRepo --- TRepo
+
+        PRepo --> DB
+        IRepo --> DB
+        TRepo --> DB
+        WalSvc --> PayGW
+        NotifSvc --> NotifExt
+    end
