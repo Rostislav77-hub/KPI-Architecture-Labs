@@ -1,119 +1,131 @@
 flowchart TB
-    subgraph Boundary ["In-Game Marketplace System"]
-        WebUI["«component»\nMarketplace Web UI"]
+    Player(["Гравець (Actor)"])
 
-        subgraph Backend ["Marketplace Backend"]
-            subgraph API ["API (controllers)"]
-                PurchaseCtrl["«component»\nPurchaseController"]
-                InvCtrl["«component»\nInventoryController"]
-                WebhookCtrl["«component»\nPaymentWebhookController"]
-            end
-
-            subgraph Services ["Services (business logic)"]
-                I_Tx(("ITransactionService"))
-                I_Inv(("IInventoryService"))
-                I_Wal(("IWalletService"))
-                TxSvc["«component»\nTransactionService"]
-                InvSvc["«component»\nInventoryService"]
-                WalSvc["«component»\nWalletService"]
-                NotifSvc["«component»\nNotificationService"]
-            end
-
-            subgraph DAL ["Data access (repositories)"]
-                I_PRepo(("IPlayerRepo"))
-                I_IRepo(("IInventoryRepo"))
-                I_TRepo(("ITransactionRepo"))
-                PRepo["«component»\nPlayerRepository"]
-                IRepo["«component»\nInventoryRepository"]
-                TRepo["«component»\nTransactionRepository"]
-            end
-
-            DB[("«database»\nMarketplace DB")]
-            PayGW["«external»\nPaymentGateway"]
-            IdP["«external»\nGameIdentityProvider"]
-            NotifExt["«external»\nNotificationProvider"]
+    subgraph SystemBoundary ["Межа системи: In-Game Marketplace System"]
+        subgraph Presentation ["Presentation (браузер — окремий процес)"]
+            LotPage["«component»\nCatalog & Lot Page\n(clickBuy)"]
+            WalletPage["«component»\nWallet & Top-Up Page\n(promptTopUp)"]
         end
 
-        WebUI --> PurchaseCtrl
-        WebUI --> InvCtrl
-        WebUI --> WebhookCtrl
+        I_REST(("REST /api\n(lollipop)"))
+        I_WS(("WS /events\n(lollipop)"))
 
-        PurchaseCtrl -.-> I_Tx
-        I_Tx --- TxSvc
-        TxSvc -.-> I_Inv
-        I_Inv --- InvSvc
-        TxSvc -.-> I_Wal
-        I_Wal --- WalSvc
+        subgraph Backend ["«component» Marketplace Backend (один процес · межа = порти)"]
+            pHttp["[portin] HTTP in"]
+            pWs["[portout] WS out"]
+            pWh["[portin] webhook in"]
+            pOidc["[portout] OIDC out"]
+            pPsp["[portout] PSP out"]
+            pMsg["[portout] email/push out"]
 
-        WalSvc -.-> I_PRepo
-        I_PRepo --- PRepo
-        InvSvc -.-> I_IRepo
-        I_IRepo --- IRepo
-        TxSvc -.-> I_TRepo
-        I_TRepo --- TRepo
-
-        PRepo --> DB
-        IRepo --> DB
-        TRepo --> DB
-        WalSvc --> PayGW
-        NotifSvc --> NotifExt
-    endflowchart TB
-    subgraph Boundary ["In-Game Marketplace System"]
-        WebUI["«component»\nMarketplace Web UI"]
-
-        subgraph Backend ["Marketplace Backend"]
-            subgraph API ["API (controllers)"]
-                PurchaseCtrl["«component»\nPurchaseController"]
-                InvCtrl["«component»\nInventoryController"]
-                WebhookCtrl["«component»\nPaymentWebhookController"]
+            subgraph API_Pkg ["package: API (controllers)"]
+                Router["«component»\nRouter\n(визначений фреймворком)"]
+                AuthM["«component»\nAuthMiddleware\n(токен гравця)"]
+                AuthC["«component»\nAuthController"]
+                PurchC["«component»\nPurchaseController\n(UC-01 clickBuy)"]
+                InvC["«component»\nInventoryController"]
+                WebhookC["«component»\nPaymentWebhookController\n(confirmPayment)"]
+                TimeoutJob["«component»\nPaymentTimeoutJob\n(cron: тайм-аут 15 хв)"]
             end
 
-            subgraph Services ["Services (business logic)"]
-                I_Tx(("ITransactionService"))
-                I_Inv(("IInventoryService"))
-                I_Wal(("IWalletService"))
-                TxSvc["«component»\nTransactionService"]
-                InvSvc["«component»\nInventoryService"]
-                WalSvc["«component»\nWalletService"]
-                NotifSvc["«component»\nNotificationService"]
+            subgraph Svc_Pkg ["package: Services (business logic)"]
+                AuthS["«component»\nAuthService"]
+                TxS["«component»\nTransactionService\n(UC-01, fork/join allSettled, refundFunds NFR-02)"]
+                InvS["«component»\nInventoryService\n(checkItemStatus REQ-03, updateOwner)"]
+                WalS["«component»\nWalletService\n(checkBalance, deduct, credit REQ-05)"]
+                NotifS["«component»\nNotificationService"]
             end
 
-            subgraph DAL ["Data access (repositories)"]
-                I_PRepo(("IPlayerRepo"))
-                I_IRepo(("IInventoryRepo"))
-                I_TRepo(("ITransactionRepo"))
-                PRepo["«component»\nPlayerRepository"]
-                IRepo["«component»\nInventoryRepository"]
-                TRepo["«component»\nTransactionRepository"]
+            subgraph DAL_Pkg ["package: Data access (repositories)"]
+                PlayerR["«component»\nPlayerRepository\n(Player, wallet_balance)"]
+                InvR["«component»\nInventoryRepository\n(InventoryItem)"]
+                TxR["«component»\nTransactionRepository\n(MarketTransaction)"]
             end
 
-            DB[("«database»\nMarketplace DB")]
-            PayGW["«external»\nPaymentGateway"]
-            IdP["«external»\nGameIdentityProvider"]
-            NotifExt["«external»\nNotificationProvider"]
+            pSql["[portout] SQL out"]
         end
 
-        WebUI --> PurchaseCtrl
-        WebUI --> InvCtrl
-        WebUI --> WebhookCtrl
-
-        PurchaseCtrl -.-> I_Tx
-        I_Tx --- TxSvc
-        TxSvc -.-> I_Inv
-        I_Inv --- InvSvc
-        TxSvc -.-> I_Wal
-        I_Wal --- WalSvc
-
-        WalSvc -.-> I_PRepo
-        I_PRepo --- PRepo
-        InvSvc -.-> I_IRepo
-        I_IRepo --- IRepo
-        TxSvc -.-> I_TRepo
-        I_TRepo --- TRepo
-
-        PRepo --> DB
-        IRepo --> DB
-        TRepo --> DB
-        WalSvc --> PayGW
-        NotifSvc --> NotifExt
+        I_SQL(("SQL\n(lollipop)"))
+        DB[("«database»\nMarketplace DB\n(окремий процес · одна спільна схема:\nPlayer, InventoryItem, MarketTransaction)")]
     end
+
+    %% Зовнішні системи поза межею (<<external>>)
+    IdP["«external»\nGameIdentityProvider\n(OAuth 2.0 / Steam OpenID)"]
+    I_OIDC(("OIDC\n(lollipop)"))
+
+    MsgExt["«external»\nNotificationProvider\n(Email / Push)"]
+    I_Msg(("Email / Push API\n(lollipop)"))
+
+    PayGW["«external»\nPaymentGateway\n(Payments API + Payment Page)"]
+    I_Webhook(("Webhook\n(lollipop)"))
+    I_PSP(("Payments API\n(lollipop)"))
+
+    %% Гравець -> Браузер та Redirect на сторінку оплати процесора
+    Player --> LotPage
+    Player --> WalletPage
+    Player -.->|"redirect -> оплата на Payment Page (REQ-05)"| PayGW
+
+    %% Presentation <-> Порти Backend (ball-and-socket)
+    LotPage -.->|"socket (required)"| I_REST
+    WalletPage -.->|"socket (required)"| I_REST
+    pHttp ---|"lollipop (provided)"| I_REST
+
+    LotPage -.->|"socket (required)"| I_WS
+    pWs ---|"lollipop (provided)"| I_WS
+
+    %% Delegation від вхідних портів усередину API
+    pHttp -->|"delegation"| Router
+    pWh -->|"delegation"| WebhookC
+
+    %% Router -> Контролери (прямі залежності всередині шару)
+    Router -.-> AuthM
+    Router -.-> AuthC
+    Router -.-> PurchC
+    Router -.-> InvC
+
+    %% API -> Services (прямі пунктирні залежності згори донизу)
+    AuthC -.-> AuthS
+    AuthM -.-> AuthS
+    PurchC -.-> TxS
+    InvC -.-> InvS
+    WebhookC -.-> WalS
+    WebhookC -.-> TxS
+    TimeoutJob -.-> TxS
+
+    %% Services <-> Services (у межах шару)
+    TxS -.-> InvS
+    TxS -.-> WalS
+    TxS -.-> NotifS
+
+    %% Services -> Data access (прямі пунктирні залежності без зайвих lollipop)
+    AuthS -.-> PlayerR
+    WalS -.-> PlayerR
+    InvS -.-> InvR
+    TxS -.-> InvR
+    TxS -.-> TxR
+
+    %% Delegation із сервісів та репозиторіїв у вихідні порти
+    NotifS -->|"delegation"| pWs
+    NotifS -->|"delegation"| pMsg
+    AuthS -->|"delegation"| pOidc
+    WalS -->|"delegation"| pPsp
+
+    PlayerR -->|"delegation"| pSql
+    InvR -->|"delegation"| pSql
+    TxR -->|"delegation"| pSql
+
+    %% Порти <-> Зовнішні контракти та БД (ball-and-socket)
+    pOidc -.->|"socket (required)"| I_OIDC
+    IdP ---|"lollipop (provided)"| I_OIDC
+
+    pMsg -.->|"socket (required)"| I_Msg
+    MsgExt ---|"lollipop (provided)"| I_Msg
+
+    PayGW -.->|"socket (required: confirmPayment)"| I_Webhook
+    pWh ---|"lollipop (provided)"| I_Webhook
+
+    pPsp -.->|"socket (required: createPaymentSession)"| I_PSP
+    PayGW ---|"lollipop (provided)"| I_PSP
+
+    pSql -.->|"socket (required)"| I_SQL
+    DB ---|"lollipop (provided)"| I_SQL
